@@ -1,0 +1,6 @@
+streamlit
+pandas
+plotly
+selenium
+webdriver_manager
+streamlit-option-menu
