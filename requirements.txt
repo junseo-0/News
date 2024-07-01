@@ -1,6 +1,6 @@
 streamlit
 pandas
 plotly
-selenium
-webdriver_manager
+requests
+beautifulsoup4
 streamlit-option-menu
