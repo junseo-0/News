@@ -41,7 +41,7 @@ def filter_news(df, filter_keyword):
     return df
 
 def main():
-    st.title('📰 News Dashboard')
+    st.title('📰 경제 뉴스검색')
 
     with st.sidebar:
         selected = option_menu(
@@ -56,7 +56,7 @@ def main():
         col1, col2 = st.columns([2,1])
         
         with col1:
-            keyword = st.text_input('Enter keyword to crawl news', '삼성')
+            keyword = st.text_input('Enter keyword to crawl news', '검색')
         with col2:
             num_news = st.slider('Number of news articles', 5, 50, 10)
 
