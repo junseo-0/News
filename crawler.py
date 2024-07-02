@@ -5,73 +5,75 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import pandas as pd
 import time
+import random
+import urllib.parse
 
-def crawl_news(keyword, num_news, max_retries=3):
+def crawl_news(keyword, num_news):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--ignore-ssl-errors')
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
     
     driver = webdriver.Chrome(options=options)
+    driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36'})
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     
-    search_url = f"https://kr.investing.com/search/?q={keyword}&tab=news"
-    driver.get(search_url)
-    print(f"Navigating to URL: {search_url}")
-
+    wait = WebDriverWait(driver, 30)
+    
     news_items = []
     
     try:
-        # Wait for page to load completely
-        WebDriverWait(driver, 20).until(
-            lambda d: d.execute_script('return document.readyState') == 'complete'
-        )
-        print("Page loaded completely")
-
-        # Wait for news section to be present
-        news_section_selector = "#fullColumn > div > div:nth-child(6) > div.searchSectionMain > div"
-        try:
-            news_section = WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, news_section_selector))
-            )
-            print("News section found")
-        except TimeoutException:
-            print("News section not found")
-            print("Page source:")
-            print(driver.page_source)
-            return pd.DataFrame()
-
-        while len(news_items) < num_news:
-            # Find articles
-            articles = news_section.find_elements(By.CSS_SELECTOR, 'div > div > a')
-            print(f"Found {len(articles)} articles")
+        # 검색 URL로 직접 이동
+        encoded_keyword = urllib.parse.quote(keyword)
+        search_url = f"https://kr.investing.com/search/?q={encoded_keyword}&tab=news"
+        driver.get(search_url)
+        print(f"Accessed search results page for keyword: {keyword}")
+        
+        # 페이지 로딩 완료 대기
+        wait.until(lambda d: d.execute_script('return document.readyState') == 'complete')
+        print("Page loading complete")
+        
+        # 명시적으로 뉴스 섹션 대기
+        news_section = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#fullColumn')))
+        print("News section found")
+        
+        retry_count = 0
+        while len(news_items) < num_news and retry_count < 5:
+            # 뉴스 항목 찾기
+            news_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.js-article-item')))
+            print(f"Found {len(news_elements)} news elements")
             
-            for article in articles:
+            if not news_elements:
+                retry_count += 1
+                print(f"No news elements found. Retrying... (Attempt {retry_count}/5)")
+                time.sleep(5)
+                continue
+            
+            for element in news_elements:
                 if len(news_items) >= num_news:
                     break
                 
                 try:
-                    title = article.text.strip()
-                    link = article.get_attribute('href')
-                    if {'title': title, 'link': link} not in news_items:
-                        news_items.append({'title': title, 'link': link})
-                        print(f"Added article: {title}")
-                except Exception as e:
-                    print(f"Error extracting article info: {str(e)}")
+                    title = element.find_element(By.CSS_SELECTOR, 'a.title').text.strip()
+                    link = element.find_element(By.CSS_SELECTOR, 'a.title').get_attribute('href')
+                    news_items.append({'title': title, 'link': link})
+                    print(f"Crawled: {title}")
+                except NoSuchElementException:
+                    print("Failed to extract article info")
                     continue
             
-            # Scroll to bottom of page
+            # 페이지 스크롤
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            print("Scrolled to bottom of page")
-            time.sleep(2)  # Wait for new content to load
+            time.sleep(random.uniform(3, 5))  # 랜덤 대기 시간 증가
             
-            # Check if new articles have been loaded
-            new_articles = news_section.find_elements(By.CSS_SELECTOR, 'div > div > a')
-            if len(new_articles) == len(articles):
+            # 새로운 기사가 로드되지 않으면 종료
+            if len(news_items) == len(set((item['title'], item['link']) for item in news_items)):
                 print("No new articles loaded, breaking loop")
                 break
-
+        
     except Exception as e:
         print(f"An error occurred: {str(e)}")
     finally:
