@@ -5,3 +5,4 @@ streamlit-option-menu
 requests
 beautifulsoup4
 selenium
+webdriver-manager

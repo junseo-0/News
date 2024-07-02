@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import time
 import random
@@ -17,10 +18,8 @@ def crawl_news(keyword, num_news):
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
 
-    # Streamlit 클라우드의 ChromeDriver 경로
-    chrome_options.binary_location = "/usr/bin/chromium-browser"
-
-    driver = webdriver.Chrome(options=chrome_options)
+    # ChromeDriver를 webdriver-manager를 통해 자동으로 다운로드 및 설정
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
     wait = WebDriverWait(driver, 20)
 
     news_items = []
@@ -45,36 +44,27 @@ def crawl_news(keyword, num_news):
                 try:
                     title_element = article.find_element(By.CSS_SELECTOR, 'a.title')
                     title = title_element.text.strip()
-                    link = title_element.get_attribute('href')
+                    link = title_element.getAttribute('href')
                     news_items.append({'title': title, 'link': link})
-                    print(f"Crawled: {title}")
+                    print(f"Scraped: {title}")
+
                 except NoSuchElementException:
-                    continue
+                    print("No title element found for an article.")
 
-            if len(news_items) >= num_news:
-                break
-
-            # 페이지 스크롤
+            # 스크롤하여 더 많은 뉴스 로드
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(random.uniform(2, 4))  # 새로운 컨텐츠 로딩을 기다림
+            time.sleep(random.uniform(2, 4))  # 잠시 대기하여 새로운 뉴스 로딩
 
-            # 새로운 항목이 로드되었는지 확인
+            # 새로운 뉴스 항목 로딩 대기
             try:
-                wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, 'div.js-article-item')) > len(articles))
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.js-article-item')))
             except TimeoutException:
-                print("No more new articles loaded")
+                print("No more articles found or page took too long to load.")
                 break
 
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        print(f"An error occurred during crawling: {str(e)}")
     finally:
         driver.quit()
 
-    print(f"Total articles crawled: {len(news_items)}")
-    return pd.DataFrame(news_items[:num_news])
-
-if __name__ == "__main__":
-    keyword = input("Enter search keyword: ")
-    num_news = int(input("Enter number of news articles to crawl: "))
-    df = crawl_news(keyword, num_news)
-    print(df)
+    return news_items
