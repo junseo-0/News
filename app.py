@@ -3,11 +3,18 @@ import pandas as pd
 import plotly.express as px
 from streamlit_option_menu import option_menu
 from crawler import crawl_news
+import logging
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 페이지 설정
+logger.info("Setting up page configuration")
 st.set_page_config(layout="wide", page_title="News Dashboard", page_icon="📰")
 
 # 스타일 적용
+logger.info("Applying styles")
 st.markdown("""
 <style>
     .reportview-container {
@@ -18,7 +25,7 @@ st.markdown("""
         padding: 2rem;
         border-radius: 10px;
         box-shadow: 0 0 10px rgba(0,0,0,.1);
-        overflow-y: auto; /* 스크롤을 가능하게 하는 속성 추가 */
+        overflow-y: auto;
     }
     h1 {
         color: #1E88E5;
@@ -36,16 +43,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 def filter_news(df, filter_keyword):
+    logger.info(f"Filtering news with keyword: {filter_keyword}")
     if filter_keyword:
         return df[df['title'].str.contains(filter_keyword, case=False, na=False)]
     return df
 
 def main():
+    logger.info("Starting main function")
     st.title('📰 경제 뉴스검색')
 
     with st.sidebar:
+        logger.info("Setting up sidebar")
         selected = option_menu(
             menu_title="Main Menu",
             options=["Dashboard", "About"],
@@ -55,6 +64,7 @@ def main():
         )
 
     if selected == "Dashboard":
+        logger.info("Dashboard selected")
         col1, col2 = st.columns([2,1])
         
         with col1:
@@ -63,40 +73,37 @@ def main():
             num_news = st.slider('Number of news articles', 5, 50, 10)
 
         if st.button('Crawl News', key='crawl_button'):
+            logger.info(f"Crawl button clicked. Keyword: {keyword}, Number of articles: {num_news}")
             if keyword:
-                # 진행 상황을 표시할 상태 표시줄 생성
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 
                 try:
+                    logger.info("Starting news crawling")
                     df = pd.DataFrame()
                     for i, news_item in enumerate(crawl_news(keyword, num_news)):
                         df = pd.concat([df, pd.DataFrame([news_item])], ignore_index=True)
-                        # 진행 상황 업데이트
                         progress = int((i + 1) / num_news * 100)
                         progress_bar.progress(progress)
                         status_text.text(f"Crawling... {i+1}/{num_news} articles")
-                        
-                    # 크롤링 완료 후 상태 표시줄 제거
+                    
                     progress_bar.empty()
                     status_text.empty()
                     
                     if not df.empty:
+                        logger.info(f"Crawling completed. {len(df)} articles found.")
                         st.success(f"{len(df)} news articles crawled successfully!")
                         
-                        # 데이터 표시 (하이퍼링크 포함)
                         st.subheader('📊 Crawled News Data')
                         df['link'] = df['link'].apply(lambda x: f'<a href="{x}" target="_blank">{x}</a>')
                         st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
                         
-                        # 필터링
                         filter_keyword = st.text_input('Enter keyword to filter news')
                         if filter_keyword:
                             filtered_df = filter_news(df, filter_keyword)
                             st.subheader('🔍 Filtered News Data')
                             st.write(filtered_df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
-                        # 시각화
                         st.subheader('📈 News Title Length Distribution')
                         fig = px.histogram(df, x=df['title'].str.len(), nbins=20,
                                            labels={'x':'Title Length', 'y':'Count'},
@@ -105,8 +112,10 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
 
                     else:
+                        logger.warning('No news articles found.')
                         st.warning('No news articles found.')
                 except Exception as e:
+                    logger.error(f"An error occurred during crawling: {str(e)}", exc_info=True)
                     st.error(f"An error occurred during crawling: {str(e)}")
                     st.markdown(
                         f"""
@@ -125,9 +134,11 @@ def main():
                         unsafe_allow_html=True
                     )
             else:
+                logger.warning('No keyword entered for crawling.')
                 st.warning('Please enter a keyword to crawl news.')
 
     elif selected == "About":
+        logger.info("About page selected")
         st.subheader("About this Dashboard")
         st.write("""
         This News Dashboard is designed to crawl and analyze news articles from kr.investing.com.
@@ -138,4 +149,5 @@ def main():
         """)
 
 if __name__ == "__main__":
+    logger.info("Starting the application")
     main()
