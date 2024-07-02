@@ -33,9 +33,14 @@ def crawl_news(keyword, num_news):
         for article in articles[:num_news]:
             try:
                 title = article.text.strip()
-                link = "https://kr.investing.com" + article['href'] if article['href'].startswith('/') else article['href']
-                news_items.append({'title': title, 'link': link})
-                print(f"Crawled: {title}")
+                link = article.get('href')
+                if link:
+                    if link.startswith('/'):
+                        link = "https://kr.investing.com" + link
+                    news_items.append({'title': title, 'link': link})
+                    print(f"Crawled: {title}")
+                else:
+                    print(f"Skipped article (no link): {title}")
             except Exception as e:
                 print(f"Error extracting article info: {str(e)}")
                 continue
