@@ -11,7 +11,8 @@ import urllib.parse
 
 def crawl_news(keyword, num_news):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    # Headless 모드 비활성화 (주석 처리)
+    # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -75,6 +76,9 @@ def crawl_news(keyword, num_news):
             except TimeoutException:
                 print("No more new articles loaded")
                 break
+
+        # 크롤링이 완료된 후 사용자 입력을 기다림
+        input("Press Enter to close the browser...")
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
