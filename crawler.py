@@ -10,12 +10,13 @@ import urllib.parse
 
 def crawl_news(keyword, num_news):
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
+    # options.add_argument('--headless')  # 디버깅을 위해 헤드리스 모드 비활성화
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
     
     driver = webdriver.Chrome(options=options)
     driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36'})
@@ -40,10 +41,17 @@ def crawl_news(keyword, num_news):
         news_section = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '#fullColumn')))
         print("News section found")
         
+        # JavaScript 실행을 통한 스크롤
+        driver.execute_script("""
+            window.scrollTo(0, document.body.scrollHeight);
+            setTimeout(() => {window.scrollTo(0, 0);}, 1000);
+        """)
+        time.sleep(5)  # 스크롤 후 대기
+        
         retry_count = 0
         while len(news_items) < num_news and retry_count < 5:
-            # 뉴스 항목 찾기
-            news_elements = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.js-article-item')))
+            # 뉴스 항목 찾기 (선택자를 더 구체적으로 변경)
+            news_elements = driver.find_elements(By.CSS_SELECTOR, 'div.js-article-item')
             print(f"Found {len(news_elements)} news elements")
             
             if not news_elements:
@@ -67,7 +75,7 @@ def crawl_news(keyword, num_news):
             
             # 페이지 스크롤
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(random.uniform(3, 5))  # 랜덤 대기 시간 증가
+            time.sleep(random.uniform(3, 5))  # 랜덤 대기 시간
             
             # 새로운 기사가 로드되지 않으면 종료
             if len(news_items) == len(set((item['title'], item['link']) for item in news_items)):
