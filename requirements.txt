@@ -1,6 +1,6 @@
-streamlit==1.22.0
-selenium==4.5.0
-pandas==1.4.4
-plotly==5.10.0
-streamlit-option-menu==0.3.2
-webdriver-manager==3.8.3
+streamlit
+selenium
+pandas
+plotly
+streamlit-option-menu
+webdriver-manager
