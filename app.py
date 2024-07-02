@@ -1,87 +1,100 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import streamlit as st
 import pandas as pd
-import time
+import plotly.express as px
+from streamlit_option_menu import option_menu
+from crawler import crawl_news
 
-def crawl_news(keyword, num_news, max_retries=3):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--ignore-ssl-errors')
-    
-    driver = webdriver.Chrome(options=options)
-    
-    search_url = f"https://kr.investing.com/search/?q={keyword}&tab=news"
-    driver.get(search_url)
-    print(f"Navigating to URL: {search_url}")
+# 페이지 설정
+st.set_page_config(layout="wide", page_title="News Dashboard", page_icon="📰")
 
-    news_items = []
-    
-    try:
-        # Wait for page to load completely
-        WebDriverWait(driver, 20).until(
-            lambda d: d.execute_script('return document.readyState') == 'complete'
+# 스타일 적용
+st.markdown("""
+<style>
+    .reportview-container {
+        background: #f0f2f6
+    }
+    .main {
+        background: #ffffff;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,.1);
+    }
+    h1 {
+        color: #1E88E5;
+    }
+    .stDataFrame {
+        width: 100%;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+def filter_news(df, filter_keyword):
+    if filter_keyword:
+        return df[df['title'].str.contains(filter_keyword, case=False, na=False)]
+    return df
+
+def main():
+    st.title('📰 News Dashboard')
+
+    with st.sidebar:
+        selected = option_menu(
+            menu_title="Main Menu",
+            options=["Dashboard", "About"],
+            icons=["house", "info-circle"],
+            menu_icon="cast",
+            default_index=0,
         )
-        print("Page loaded completely")
 
-        # Wait for news section to be present
-        news_section_selector = "#fullColumn > div > div:nth-child(6) > div.searchSectionMain > div"
-        try:
-            news_section = WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, news_section_selector))
-            )
-            print("News section found")
-        except TimeoutException:
-            print("News section not found")
-            print("Page source:")
-            print(driver.page_source)
-            return pd.DataFrame()
+    if selected == "Dashboard":
+        col1, col2 = st.columns([2,1])
+        
+        with col1:
+            keyword = st.text_input('Enter keyword to crawl news', '삼성')
+        with col2:
+            num_news = st.slider('Number of news articles', 5, 50, 10)
 
-        while len(news_items) < num_news:
-            # Find articles
-            articles = news_section.find_elements(By.CSS_SELECTOR, 'div > div > a')
-            print(f"Found {len(articles)} articles")
-            
-            for article in articles:
-                if len(news_items) >= num_news:
-                    break
+        if st.button('Crawl News', key='crawl_button'):
+            if keyword:
+                with st.spinner('Crawling news...'):
+                    df = crawl_news(keyword, num_news)
                 
-                try:
-                    title = article.text.strip()
-                    link = article.get_attribute('href')
-                    if {'title': title, 'link': link} not in news_items:
-                        news_items.append({'title': title, 'link': link})
-                        print(f"Added article: {title}")
-                except Exception as e:
-                    print(f"Error extracting article info: {str(e)}")
-                    continue
-            
-            # Scroll to bottom of page
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            print("Scrolled to bottom of page")
-            time.sleep(2)  # Wait for new content to load
-            
-            # Check if new articles have been loaded
-            new_articles = news_section.find_elements(By.CSS_SELECTOR, 'div > div > a')
-            if len(new_articles) == len(articles):
-                print("No new articles loaded, breaking loop")
-                break
+                if not df.empty:
+                    st.success(f"{len(df)} news articles crawled successfully!")
+                    
+                    # 데이터 표시 (하이퍼링크 포함)
+                    st.subheader('📊 Crawled News Data')
+                    df['link'] = df['link'].apply(lambda x: f'<a href="{x}" target="_blank">{x}</a>')
+                    st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+                    
+                    # 필터링
+                    filter_keyword = st.text_input('Enter keyword to filter news')
+                    if filter_keyword:
+                        filtered_df = filter_news(df, filter_keyword)
+                        st.subheader('🔍 Filtered News Data')
+                        st.write(filtered_df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")
-    finally:
-        driver.quit()
-    
-    print(f"Total articles crawled: {len(news_items)}")
-    return pd.DataFrame(news_items[:num_news])
+                    # 시각화
+                    st.subheader('📈 News Title Length Distribution')
+                    fig = px.histogram(df, x=df['title'].str.len(), nbins=20,
+                                       labels={'x':'Title Length', 'y':'Count'},
+                                       title='Distribution of News Title Lengths')
+                    fig.update_layout(xaxis_range=[0, max(df['title'].str.len()) + 10])
+                    st.plotly_chart(fig, use_container_width=True)
+
+                else:
+                    st.warning('No news articles found.')
+            else:
+                st.warning('Please enter a keyword to crawl news.')
+
+    elif selected == "About":
+        st.subheader("About this Dashboard")
+        st.write("""
+        This News Dashboard is designed to crawl and analyze news articles from kr.investing.com.
+        It provides a simple interface to search for news based on keywords, visualize the data,
+        and filter the results.
+        
+        Built with Streamlit, Selenium, and Plotly.
+        """)
 
 if __name__ == "__main__":
-    keyword = input("Enter search keyword: ")
-    num_news = int(input("Enter number of news articles to crawl: "))
-    df = crawl_news(keyword, num_news)
-    print(df)
+    main()
