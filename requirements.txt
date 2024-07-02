@@ -1,6 +1,7 @@
 streamlit
 pandas
 plotly
+streamlit-option-menu
 requests
 beautifulsoup4
-streamlit-option-menu
+selenium

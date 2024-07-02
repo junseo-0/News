@@ -28,6 +28,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+@st.cache_data
 def filter_news(df, filter_keyword):
     if filter_keyword:
         return df[df['title'].str.contains(filter_keyword, case=False, na=False)]
@@ -46,7 +47,7 @@ def main():
         )
 
     if selected == "Dashboard":
-        col1, col2 = st.columns([2,1])
+        col1, col2 = st.columns(2)
         
         with col1:
             keyword = st.text_input('Enter keyword to crawl news', '삼성')
@@ -55,7 +56,7 @@ def main():
 
         if st.button('Crawl News', key='crawl_button'):
             if keyword:
-                with st.spinner('Crawling news...'):
+                with st.spinner('Crawling news... This may take a while depending on the number of articles.'):
                     df = crawl_news(keyword, num_news)
                 
                 if not df.empty:
@@ -93,7 +94,7 @@ def main():
         It provides a simple interface to search for news based on keywords, visualize the data,
         and filter the results.
         
-        Built with Streamlit, Selenium, and Plotly.
+        Built with Streamlit, Selenium, BeautifulSoup, and Plotly.
         """)
 
 if __name__ == "__main__":
