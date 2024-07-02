@@ -33,9 +33,13 @@ def crawl_news(keyword, num_news):
             news_elements = driver.find_elements(By.CSS_SELECTOR, 'div.searchSectionMain > div > div > div > a')
 
             for element in news_elements:
-                title = element.text
-                link = element.get_attribute('href')
-                news_items.append({"title": title, "link": link})
+                try:
+                    title = element.text
+                    link = element.get_attribute('href')
+                    if title and link:
+                        news_items.append({"title": title, "link": link})
+                except AttributeError as e:
+                    print(f"Error retrieving data from element: {e}")
                 if len(news_items) >= num_news:
                     break
             
@@ -47,6 +51,8 @@ def crawl_news(keyword, num_news):
         print("Timed out waiting for page to load")
     except NoSuchElementException as e:
         print("No more elements found")
+    except Exception as e:
+        print(f"An error occurred during crawling: {e}")
     finally:
         driver.quit()
 
