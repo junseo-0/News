@@ -24,6 +24,12 @@ def crawl_news(keyword, num_news):
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
 
+    # 새로운 옵션 추가
+    chrome_options.add_argument("--disable-features=IsolateOrigins,site-per-process")
+    chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+
     # Streamlit Cloud에서 실행 중인지 확인
     if 'STREAMLIT_SHARING' in os.environ:
         logger.info("Running on Streamlit Cloud")
