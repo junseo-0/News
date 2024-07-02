@@ -58,7 +58,7 @@ def main():
         col1, col2 = st.columns([2,1])
         
         with col1:
-            keyword = st.text_input('Enter keyword to crawl news', '검색')
+            keyword = st.text_input('Enter keyword to crawl news', '테슬라')
         with col2:
             num_news = st.slider('Number of news articles', 5, 50, 10)
 
