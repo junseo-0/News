@@ -27,7 +27,7 @@ def crawl_news(keyword, num_news):
 
     try:
         encoded_keyword = urllib.parse.quote(keyword)
-        url = f"https://kr.investing.com/search/?q={encoded_keyword}&tab=news"
+        url = f"https://kr.investing.com/search/?q={keyword}&tab=news"
         driver.get(url)
         print(f"Accessed search results page for keyword: {keyword}")
 
