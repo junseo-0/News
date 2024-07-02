@@ -11,13 +11,14 @@ st.set_page_config(layout="wide", page_title="News Dashboard", page_icon="📰")
 st.markdown("""
 <style>
     .reportview-container {
-        background: #f0f2f6
+        background: #f0f2f6;
     }
     .main {
         background: #ffffff;
         padding: 2rem;
         border-radius: 10px;
         box-shadow: 0 0 10px rgba(0,0,0,.1);
+        overflow-y: auto; /* 스크롤을 가능하게 하는 속성 추가 */
     }
     h1 {
         color: #1E88E5;
@@ -34,6 +35,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 def filter_news(df, filter_keyword):
     if filter_keyword:
