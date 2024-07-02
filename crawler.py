@@ -11,54 +11,44 @@ import urllib.parse
 
 def crawl_news(keyword, num_news):
     chrome_options = Options()
-    # Headless 모드 비활성화 (주석 처리)
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")  # Headless 모드 활성화
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
 
-    try:
-        driver = webdriver.Chrome(options=chrome_options)
-    except WebDriverException as e:
-        print(f"Failed to initialize WebDriver: {str(e)}")
-        return pd.DataFrame()
-
-    wait = WebDriverWait(driver, 20)
+    driver = None
     news_items = []
 
     try:
+        driver = webdriver.Chrome(options=chrome_options)
+        wait = WebDriverWait(driver, 20)
+
         encoded_keyword = urllib.parse.quote(keyword)
         url = f"https://kr.investing.com/search/?q={encoded_keyword}&tab=news"
         driver.get(url)
         print(f"Accessed search results page for keyword: {keyword}")
 
-        # 페이지 로딩 대기
         news_container_selector = "#fullColumn > div > div:nth-child(6) > div.searchSectionMain > div"
-        try:
-            news_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, news_container_selector)))
-            print("News container found")
-        except TimeoutException:
-            print("Timed out waiting for news container")
-            return pd.DataFrame()
+        news_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, news_container_selector)))
+        print("News container found")
 
         while len(news_items) < num_news:
-            # 현재 페이지의 뉴스 항목 찾기
             articles = news_container.find_elements(By.CSS_SELECTOR, "div > div > a")
             print(f"Found {len(articles)} articles")
 
-            for article in articles[len(news_items):]:
+            for article in articles:
                 if len(news_items) >= num_news:
                     break
 
                 try:
                     title = article.text.strip()
                     link = article.get_attribute('href')
-                    if title and link:
+                    if title and link and {'title': title, 'link': link} not in news_items:
                         news_items.append({'title': title, 'link': link})
                         print(f"Crawled: {title}")
                     else:
-                        print(f"Skipped article (missing title or link)")
+                        print(f"Skipped article (duplicate or missing info)")
                 except Exception as e:
                     print(f"Error extracting article info: {str(e)}")
                     continue
@@ -66,30 +56,25 @@ def crawl_news(keyword, num_news):
             if len(news_items) >= num_news:
                 break
 
-            # 페이지 스크롤
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(random.uniform(2, 4))  # 새로운 컨텐츠 로딩을 기다림
+            time.sleep(random.uniform(2, 4))
 
-            # 새로운 항목이 로드되었는지 확인
             try:
                 wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, f"{news_container_selector} > div > div > a")) > len(articles))
             except TimeoutException:
                 print("No more new articles loaded")
                 break
 
-        # 크롤링이 완료된 후 사용자 입력을 기다림
-        input("Press Enter to close the browser...")
+        print(f"Total unique articles crawled: {len(news_items)}")
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
     finally:
-        driver.quit()
+        if driver:
+            driver.quit()
 
-    print(f"Total articles crawled: {len(news_items)}")
     return pd.DataFrame(news_items[:num_news])
 
-if __name__ == "__main__":
-    keyword = input("Enter search keyword: ")
-    num_news = int(input("Enter number of news articles to crawl: "))
-    df = crawl_news(keyword, num_news)
-    print(df)
+# Streamlit 앱에서 직접 호출할 함수
+def get_news(keyword, num_news):
+    return crawl_news(keyword, num_news)
