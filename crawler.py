@@ -3,10 +3,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 import pandas as pd
 import time
+import random
 import urllib.parse
 
 def crawl_news(keyword, num_news):
@@ -17,49 +17,76 @@ def crawl_news(keyword, num_news):
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36")
 
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+    # Streamlit 클라우드의 ChromeDriver 경로
+    chrome_options.binary_location = "/usr/bin/chromium-browser"
+
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+    except WebDriverException as e:
+        print(f"Failed to initialize WebDriver: {str(e)}")
+        return pd.DataFrame()
+
     wait = WebDriverWait(driver, 20)
 
     news_items = []
 
     try:
         encoded_keyword = urllib.parse.quote(keyword)
-        url = f"https://kr.investing.com/search/?q={keyword}&tab=news"
+        url = f"https://kr.investing.com/search/?q={encoded_keyword}&tab=news"
         driver.get(url)
         print(f"Accessed search results page for keyword: {keyword}")
 
-        while len(news_items) < num_news:
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.searchSectionMain')))
-            news_elements = driver.find_elements(By.CSS_SELECTOR, 'div.searchSectionMain > div > div > div > a')
+        # 페이지 로딩 대기
+        news_container_selector = "#fullColumn > div > div:nth-child(6) > div.searchSectionMain > div"
+        try:
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, news_container_selector)))
+            print("News container found")
+        except TimeoutException:
+            print("Timed out waiting for news container")
+            return pd.DataFrame()
 
-            for element in news_elements:
-                try:
-                    title = element.text
-                    link = element.get_attribute('href')
-                    if title and link:
-                        news_items.append({"title": title, "link": link})
-                except AttributeError as e:
-                    print(f"Error retrieving data from element: {e}")
+        while len(news_items) < num_news:
+            # 현재 페이지의 뉴스 항목 찾기
+            articles = driver.find_elements(By.CSS_SELECTOR, f"{news_container_selector} > div > div > a")
+            print(f"Found {len(articles)} articles")
+
+            for article in articles[len(news_items):]:
                 if len(news_items) >= num_news:
                     break
-            
-            # Scroll down to load more news items
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)  # Adjust sleep time as needed to allow new items to load
 
-    except TimeoutException as e:
-        print("Timed out waiting for page to load")
-    except NoSuchElementException as e:
-        print("No more elements found")
+                try:
+                    title = article.text.strip()
+                    link = article.get_attribute('href')
+                    news_items.append({'title': title, 'link': link})
+                    print(f"Crawled: {title}")
+                except Exception as e:
+                    print(f"Error extracting article info: {str(e)}")
+                    continue
+
+            if len(news_items) >= num_news:
+                break
+
+            # 페이지 스크롤
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(random.uniform(2, 4))  # 새로운 컨텐츠 로딩을 기다림
+
+            # 새로운 항목이 로드되었는지 확인
+            try:
+                wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, f"{news_container_selector} > div > div > a")) > len(articles))
+            except TimeoutException:
+                print("No more new articles loaded")
+                break
+
     except Exception as e:
-        print(f"An error occurred during crawling: {e}")
+        print(f"An error occurred: {str(e)}")
     finally:
         driver.quit()
 
-    return pd.DataFrame(news_items)
+    print(f"Total articles crawled: {len(news_items)}")
+    return pd.DataFrame(news_items[:num_news])
 
 if __name__ == "__main__":
-    keyword = "example_keyword"
-    num_news = 10
-    news_df = crawl_news(keyword, num_news)
-    print(news_df)
+    keyword = input("Enter search keyword: ")
+    num_news = int(input("Enter number of news articles to crawl: "))
+    df = crawl_news(keyword, num_news)
+    print(df)
