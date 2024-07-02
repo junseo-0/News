@@ -44,12 +44,16 @@ def crawl_news(keyword, num_news):
                 try:
                     title_element = article.find_element(By.CSS_SELECTOR, 'a.title')
                     title = title_element.text.strip()
-                    link = title_element.getAttribute('href')
+                    link = title_element.get_attribute('href')
                     news_items.append({'title': title, 'link': link})
                     print(f"Scraped: {title}")
 
                 except NoSuchElementException:
                     print("No title element found for an article.")
+                except AttributeError as e:
+                    print(f"AttributeError: {str(e)}")
+                except Exception as e:
+                    print(f"Unexpected error: {str(e)}")
 
             # 스크롤하여 더 많은 뉴스 로드
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
