@@ -25,8 +25,12 @@ def setup_driver():
 
     if 'STREAMLIT_SHARING' in os.environ:
         logger.info("Running on Streamlit Cloud")
+        CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver"
+        if not os.path.exists(CHROMEDRIVER_PATH):
+            logger.error(f"ChromeDriver not found at {CHROMEDRIVER_PATH}")
+            raise FileNotFoundError(f"ChromeDriver not found at {CHROMEDRIVER_PATH}")
         chrome_options.binary_location = "/usr/bin/google-chrome-stable"
-        return webdriver.Chrome(options=chrome_options)
+        return webdriver.Chrome(executable_path=CHROMEDRIVER_PATH, options=chrome_options)
     else:
         logger.info("Running locally")
         from webdriver_manager.chrome import ChromeDriverManager
