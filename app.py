@@ -95,22 +95,11 @@ def main():
                         st.success(f"{len(df)} news articles crawled successfully!")
                         
                         st.subheader('📊 Crawled News Data')
-                        df['link'] = df['link'].apply(lambda x: f'<a href="{x}" target="_blank">{x}</a>')
-                        st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+                        df['title'] = df.apply(lambda row: f'<a href="{row["link"]}" target="_blank">{row["title"]}</a>', axis=1)
+                        df = df.drop(columns=['link'])  # link 열 제거
+                        df.index = range(1, len(df) + 1)  # 인덱스를 1부터 시작하는 번호로 설정
+                        st.write(df.to_html(escape=False, index=True), unsafe_allow_html=True)
                         
-                        filter_keyword = st.text_input('Enter keyword to filter news')
-                        if filter_keyword:
-                            filtered_df = filter_news(df, filter_keyword)
-                            st.subheader('🔍 Filtered News Data')
-                            st.write(filtered_df.to_html(escape=False, index=False), unsafe_allow_html=True)
-
-                        st.subheader('📈 News Title Length Distribution')
-                        fig = px.histogram(df, x=df['title'].str.len(), nbins=20,
-                                           labels={'x':'Title Length', 'y':'Count'},
-                                           title='Distribution of News Title Lengths')
-                        fig.update_layout(xaxis_range=[0, max(df['title'].str.len()) + 10])
-                        st.plotly_chart(fig, use_container_width=True)
-
                     else:
                         logger.warning('No news articles found.')
                         st.warning('No news articles found.')
