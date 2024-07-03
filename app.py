@@ -53,19 +53,18 @@ def setup_driver():
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
 
-    if 'STREAMLIT_SHARING' in os.environ:
-        logger.info("Running on Streamlit Cloud")
-        CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver"
-        if not os.path.exists(CHROMEDRIVER_PATH):
-            logger.error(f"ChromeDriver not found at {CHROMEDRIVER_PATH}")
-            raise FileNotFoundError(f"ChromeDriver not found at {CHROMEDRIVER_PATH}")
-        chrome_options.binary_location = "/usr/bin/google-chrome-stable"
-        return webdriver.Chrome(executable_path=CHROMEDRIVER_PATH, options=chrome_options)
-    else:
-        logger.info("Running locally")
-        from webdriver_manager.chrome import ChromeDriverManager
-        from selenium.webdriver.chrome.service import Service
-        return webdriver.Chrome(service=Service(ChromeDriverManager(version="114.0.5735.90").install()), options=chrome_options)
+    try:
+        if 'STREAMLIT_SHARING' in os.environ:
+            logger.info("Running on Streamlit Cloud")
+            return webdriver.Chrome(options=chrome_options)
+        else:
+            logger.info("Running locally")
+            from webdriver_manager.chrome import ChromeDriverManager
+            from selenium.webdriver.chrome.service import Service
+            return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    except Exception as e:
+        logger.error(f"Failed to setup WebDriver: {str(e)}")
+        raise
 
 @st.cache_data
 def crawl_news(keyword, num_news):
