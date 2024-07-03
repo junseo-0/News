@@ -12,7 +12,7 @@ import os
 import logging
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def crawl_news(keyword, num_news):
@@ -49,6 +49,7 @@ def crawl_news(keyword, num_news):
 
         news_container_selector = "#fullColumn > div > div:nth-child(6) > div.searchSectionMain > div"
         news_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, news_container_selector)))
+        logger.info("News container found")
         
         news_items = []
         scroll_attempts = 0
@@ -56,24 +57,28 @@ def crawl_news(keyword, num_news):
 
         while len(news_items) < num_news and scroll_attempts < max_scroll_attempts:
             articles = news_container.find_elements(By.CSS_SELECTOR, "div > div > a")
+            logger.info(f"Found {len(articles)} articles")
             
             for article in articles:
                 if len(news_items) >= num_news:
                     break
                 try:
-                    title = article.text.strip()
+                    title = article.text.strip() if article.text else None
                     link = article.get_attribute('href')
                     if title and link and {'title': title, 'link': link} not in news_items:
                         news_items.append({'title': title, 'link': link})
                         yield {'title': title, 'link': link}
                         logger.info(f"Crawled: {title}")
+                    else:
+                        logger.warning(f"Skipped article due to missing title or link")
                 except Exception as e:
-                    logger.error(f"Error extracting article info: {str(e)}")
+                    logger.error(f"Error extracting article info: {str(e)}", exc_info=True)
 
             if len(news_items) < num_news:
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(random.uniform(2, 4))
                 scroll_attempts += 1
+                logger.info(f"Scrolled page. Attempt {scroll_attempts}/{max_scroll_attempts}")
 
         if len(news_items) < num_news:
             logger.warning(f"Could only find {len(news_items)} articles. Requested: {num_news}")
@@ -82,6 +87,7 @@ def crawl_news(keyword, num_news):
         logger.error(f"An error occurred during crawling: {str(e)}", exc_info=True)
     finally:
         driver.quit()
+        logger.info("Browser closed")
 
 if __name__ == "__main__":
     keyword = input("Enter search keyword: ")
