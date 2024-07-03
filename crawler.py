@@ -1,7 +1,5 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -31,12 +29,18 @@ def setup_driver():
         return webdriver.Chrome(options=chrome_options)
     else:
         logger.info("Running locally")
-        service = Service(ChromeDriverManager().install())
-        return webdriver.Chrome(service=service, options=chrome_options)
+        from webdriver_manager.chrome import ChromeDriverManager
+        from selenium.webdriver.chrome.service import Service
+        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 def crawl_news(keyword, num_news):
     logger.info(f"Starting crawl for keyword: {keyword}, number of news: {num_news}")
-    driver = setup_driver()
+    try:
+        driver = setup_driver()
+    except Exception as e:
+        logger.error(f"Failed to setup WebDriver: {str(e)}")
+        return []
+
     wait = WebDriverWait(driver, 20)
 
     try:
